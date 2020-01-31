@@ -45,7 +45,18 @@ void setup() {
   Serial.println(F("Done setup..."));
 }
 
+bool card_present(MFRC522 rfid) {
+  byte bufferATQA[2];
+  byte bufferSize = sizeof(bufferATQA);
+  rfid.PCD_WriteRegister(0x24, 0x26);
+  int status = rfid.PICC_RequestA(bufferATQA, bufferSize);
+  
+  bool result = rfid.PICC_IsNewCardPresent();
+  return result;
+};
+
 void dump_serial(MFRC522 rfid){
+
   if ((!rfid.PICC_IsNewCardPresent()) || (!rfid.PICC_ReadCardSerial())) {
     // Serial.println(F("No card"));
     return ;
@@ -63,7 +74,17 @@ void dump_serial(MFRC522 rfid){
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  Serial.println(F("Waiting for card..."));
+  while (!rfid_top.PICC_IsNewCardPresent()) {
+    delay(100);
+     // Halt PICC
+    rfid_top.PICC_HaltA();
+    // Stop encryption on PCD
+    rfid_top.PCD_StopCrypto1();
+  };
+ 
+  Serial.println(F("GOOOOOO"));
+
   digitalWrite(DRIVER_L_IN1, LOW);
   digitalWrite(DRIVER_L_IN2, HIGH);
 
@@ -72,19 +93,16 @@ void loop() {
   
   analogWrite(DRIVER_L_ENA, 255);
   analogWrite(DRIVER_R_ENB, 255);
-
-  dump_serial(rfid_top);
-  dump_serial(rfid_bottom);
-
-  // Если пришли данные по Bluetooth
-  while (bluetooth.available())
-  {
-    // Записываем, что пришло от Bluetooth в переменную bt_input
-    int bt_input = (int) bluetooth.read();
-    analogWrite(DRIVER_L_ENA, (bt_input - 49) * 64);
-    dump_serial(rfid_top);
   
-    Serial.println(bt_input);
-    Serial.println((char) bt_input);
+  while (card_present(rfid_top)) {
+    while (bluetooth.available())
+    {
+      int bt_input = (int) bluetooth.read();
+      Serial.println((char) bt_input);
+    }
   }
+  Serial.println(F("Died ...")); 
+  analogWrite(DRIVER_L_ENA, 0);
+  analogWrite(DRIVER_R_ENB, 0);
+  
 }

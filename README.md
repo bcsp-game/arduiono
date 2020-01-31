@@ -13,9 +13,9 @@
 | D5~  | Driver | ENA |
 | D6~  | Driver | ENB |
 | D7 |  |  |
-| D8 | RFID | SPI SS 1 |
+| D8 | RFID | SPI SS 1 TOP|
 | D9~ | RFID | RST |
-| D10~ | RFID | SPI SS 2 |
+| D10~ | RFID | SPI SS 2 BOTTOM |
 | D11~ | RFID | MOSI |
 | D12 | RFID | MISO |
 | D13 | RFID | SCK |
