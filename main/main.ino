@@ -122,9 +122,9 @@ void loop() {
     dump_serial(rfid_bottom);
     if (bluetooth.available() >= 2)
     {
-      int left = (int) bluetooth.read();
       int right = (int) bluetooth.read();
-
+      int left = (int) bluetooth.read();
+      
       set_speed(driver_left, (left - 128) * 3);
       set_speed(driver_right, (right - 128) * 3);
 
