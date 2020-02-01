@@ -65,10 +65,13 @@ void dump_serial(MFRC522 rfid){
     return ;
   }
 
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(rfid.uid.uidByte[i], HEX);
-  }
+  log("collected ");
+  log(String(rfid.uid.uidByte[0], HEX).c_str());
+  
+//  for (byte i = 0; i < rfid.uid.size; i++) {
+//    log(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
+//    log(String(rfid.uid.uidByte[i], HEX));
+//  }
 
   // Halt PICC
   rfid.PICC_HaltA();
@@ -87,33 +90,52 @@ void set_speed(int driver[3], int speed) {
   digitalWrite(driver[0], (speed > 0 ? HIGH : LOW));
   digitalWrite(driver[1], (speed > 0 ? LOW : HIGH));
 
-  analogWrite(driver[2], abs(speed));
+  analogWrite(driver[2], min(255, abs(speed)));
+}
+
+void log(char* s) {
+  Serial.println(s);
+  bluetooth.print(s); 
 }
 
 void loop() {
-  Serial.println(F("Waiting for card..."));
+  log("Waiting for card...");
   while (!rfid_top.PICC_IsNewCardPresent()) {
     delay(100);
      // Halt PICC
     rfid_top.PICC_HaltA();
     // Stop encryption on PCD
     rfid_top.PCD_StopCrypto1();
-  };
- 
-  Serial.println(F("GOOOOOO"));
 
-  set_speed(driver_left, 128);
-  set_speed(driver_right, -255);
+    // clear bluetooth
+    while (bluetooth.available()) {
+      bluetooth.read();
+    };
+  };
+
+  log("GOOOOOO");
+
+  set_speed(driver_left, 0);
+  set_speed(driver_right, 0);
   
   while (card_present(rfid_top)) {
     dump_serial(rfid_bottom);
-    while (bluetooth.available())
+    if (bluetooth.available() >= 2)
     {
-      int bt_input = (int) bluetooth.read();
-      Serial.print((char) bt_input);
+      int left = (int) bluetooth.read();
+      int right = (int) bluetooth.read();
+
+      set_speed(driver_left, (left - 128) * 3);
+      set_speed(driver_right, (right - 128) * 3);
+
+      Serial.print(left, DEC);
+      Serial.print(" "); 
+      Serial.print(right, DEC);
+      Serial.println(); 
     }
   }
-  Serial.println(F("Died ...")); 
+  log("Died");
+  bluetooth.print(F("Died ...")); 
   set_speed(driver_left, 0);
   set_speed(driver_right, 0);
 }
