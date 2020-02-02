@@ -20,6 +20,12 @@
 #define SPEED_ZERO 64
 #define SPEED_RATIO 5
 
+#define SPEED_ZERO_THRESHOLD 50
+
+#define MAX_SPEED_DELTA 80
+
+#define SIGN(v) ((v < 0) ? -1 : 1)
+
 enum MotorSide
 {
   LEFT_MOTOR,
@@ -89,28 +95,37 @@ void dump_serial(MFRC522 rfid){
   rfid.PCD_StopCrypto1();
 }
 
+//left, right
+int last_speed[] = {0, 0};
+
 void set_speed(MotorSide side, int speed)
 {
-  
   const int* driver = (side == LEFT_MOTOR) ? driver_left : driver_right;
-  
-  if (speed == 0) {
+
+  if (speed == 0)
+  {
     digitalWrite(driver[0], LOW);
     digitalWrite(driver[1], LOW);
-
-    return ;
   }
+  else
+  {
+ 	  digitalWrite(driver[0], (speed > 0 ? HIGH : LOW));
+  	digitalWrite(driver[1], (speed > 0 ? LOW : HIGH));
 
-  digitalWrite(driver[0], (speed > 0 ? HIGH : LOW));
-  digitalWrite(driver[1], (speed > 0 ? LOW : HIGH));
-
-  analogWrite(driver[2], min(255, abs(speed) + 30));
+  	analogWrite(driver[2], min(255, abs(speed) + SPEED_ZERO_THRESHOLD));
+  }
 }
 
 void set_speed(int speed)
 {
   set_speed(LEFT_MOTOR, speed);
   set_speed(RIGHT_MOTOR, speed);
+}
+
+void set_speed(int left, int right)
+{
+	set_speed(LEFT_MOTOR, left);
+	set_speed(RIGHT_MOTOR, right);
 }
 
 void log(const char* s)
@@ -148,16 +163,33 @@ void loop()
    if (bluetooth.available())
    {
      const byte value = bluetooth.read();
-     
-     const int speed = SPEED_RATIO * ( (value & 127) - SPEED_ZERO );
-     const MotorSide side = (value & 128) ? RIGHT_MOTOR : LEFT_MOTOR;
-     
-     set_speed(side, speed);
 
-    //  Serial.print(side, DEC);
-    //  Serial.print(" ");
-    //  Serial.print(speed, DEC);
-    //  Serial.println();
+     //[-320; 315]
+     const int speed = SPEED_RATIO * ( (value & 127) - SPEED_ZERO );
+
+     const MotorSide side = (value & 128) ? RIGHT_MOTOR : LEFT_MOTOR;
+     const MotorSide other_side = (side == RIGHT_MOTOR) ? LEFT_MOTOR : RIGHT_MOTOR;
+
+     last_speed[side] = speed;
+     
+     const int speed_delta = last_speed[side] - last_speed[other_side];
+    
+      if(abs(speed_delta) < MAX_SPEED_DELTA)
+      {
+      	set_speed(side, last_speed[side]);
+      }
+      else
+      {
+      	const int mid_speed = (last_speed[side] + last_speed[other_side])/2;
+      
+      	set_speed(side, mid_speed + MAX_SPEED_DELTA * SIGN(speed_delta) / 2);
+      	set_speed(other_side, mid_speed - MAX_SPEED_DELTA * SIGN(speed_delta) / 2);
+      }
+      
+//      Serial.print(last_speed[LEFT_MOTOR], DEC);
+//      Serial.print(" ");
+//      Serial.print(last_speed[RIGHT_MOTOR], DEC);
+//      Serial.println();
    }
  }
   
